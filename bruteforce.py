@@ -3,11 +3,6 @@ import time
 from itertools import islice
 
 
-def take(n, iterable):
-    """Return the first n items of the iterable as a list."""
-    return list(islice(iterable, n))
-
-
 start = time.time()
 global since_last_step
 since_last_step = start
@@ -67,6 +62,11 @@ def find_all_subcombinations(
     all_combinations[f"Actions {",".join(current_actions_bought)}"] = round(
         float(current_earnings), 2
     )
+
+
+def take(n, iterable):
+    """Return the first n items of the iterable as a list."""
+    return list(islice(iterable, n))
 
 
 print(f"\n\ntime before all calculations: {time.time()-start}\n")
