@@ -1,93 +1,45 @@
-import pandas as pd
+from typing import List
 import time
-from itertools import islice
+import pandas as pd
 
 
-STRATEGIES_MAX_AMOUNT = 1000
-FILE = "dataset2_Python+P7.csv"
-BEST_STRATEGIES = {}  # format {"Actions 1,n": [total_earnings, total_cost]}
-IS_DATASET = True
+STARTING_MONEY = 500
+FILE1 = "datasets/liste1.csv"
+FILE2 = "datasets/dataset1_Python+P7.csv"
+FILE3 = "datasets/dataset2_Python+P7.csv"
 
 
-# region functions
-def find_first_subcombinations(
-    actions_left: pd.DataFrame,
-    current_actions_bought: list[str] = [],
-    current_earnings: float = 0,
-    current_money_left: float = 500,
-    max_result_amount: int = 30,
-):
-    """Trouve les <STRATEGIES_MAX_AMOUNT> premières stratégies du tableau
-    (trié par meilleures actions).
+def get_data(
+    file_name: str, is_dataset: bool = True, show_df_formatting: bool = True
+) -> pd.DataFrame:
+    """Reading file content and returning DataFrame sorted by profits and filtered from bad data.
+
+    Format is:
+
+    Index: Action number(str)
+
+    Columns: ['cost','profit','earnings']
 
     Args:
-        actions_left (pd.DataFrame): Dataframe à renseigner.
-        current_actions_bought (list[str], optional): Current actions bought. Defaults to [].
-        current_earnings (float, optional): Current earnings. Defaults to 0.
-        current_money_left (float, optional): Available money to buy actions. Defaults to 500.
+        file_name (str): Name of file to analyse.
+        is_dataset (bool, optional): Used for column names. False if file is liste1.csv.
+            Defaults to True.
+        show_df_formatting (bool, optional): Print DataFrame formatting steps. Defaults to True.
+
+    Returns:
+        pd.DataFrame: Sorted DataFrame (format in func docstring)
     """
-    actions_len = actions_left.shape[0]
-    action_index = 0
-    max_cost_reached = True
-    while action_index < actions_len and len(BEST_STRATEGIES) < max_result_amount:
-        this_action = actions_left.iloc[action_index]
-        if this_action.cost <= current_money_left:
-            max_cost_reached = False
-            current_actions_bought.append(this_action.name)
-            find_first_subcombinations(
-                actions_left=actions_left.iloc[(action_index + 1) : actions_len],
-                current_actions_bought=current_actions_bought,
-                current_earnings=current_earnings + this_action.earnings,
-                current_money_left=current_money_left - this_action.cost,
-                max_result_amount=max_result_amount,
-            )
-            current_actions_bought.pop()
+    df = pd.read_csv(file_name)
+    if show_df_formatting:
+        print("File as is:")
+    if show_df_formatting:
+        print(df.head())
+    if show_df_formatting:
+        print(df.dtypes)
 
-        action_index += 1
-    if max_cost_reached:
-        action_name = (
-            f"Actions {",".join([str(x) for x in sorted(current_actions_bought)])}"
-            if IS_DATASET
-            else f"Actions {",".join([str(x) for x in sorted([int(y) for y in current_actions_bought])])}"
-        )
-        BEST_STRATEGIES[action_name] = [
-            round(float(current_earnings), 2),
-            round(float(current_money_left), 2),
-        ]
-
-
-def take(n, iterable):
-    """Return the first n items of the iterable as a list."""
-    return list(islice(iterable, n))
-
-
-def execute_find_strategies_with_sorted(
-    actions: pd.DataFrame, sorting_labels: list[str]
-):
-    for i, sorting_label in enumerate(sorting_labels):
-        df = actions.sort_values(by=[sorting_label], ascending=False)
-        find_first_subcombinations(
-            df,
-            max_result_amount=int(
-                STRATEGIES_MAX_AMOUNT * (i + 1) / len(sorting_labels)
-            ),
-        )
-
-
-# endregion
-
-
-def main():
-    start = time.time()
-
-    df = pd.read_csv(FILE)
-    print("File as is:")
-    print(df.head())
-    print(df.dtypes)
-
-    action_col_name = "name" if IS_DATASET else "Actions #"
-    action_prefix = "Share-" if IS_DATASET else "Action-"
-    if IS_DATASET:
+    action_col_name = "name" if is_dataset else "Actions #"
+    action_prefix = "Share-" if is_dataset else "Action-"
+    if is_dataset:
         df = df.rename(columns={"price": "cost"})
     else:
         df = df.rename(
@@ -98,35 +50,128 @@ def main():
         )
     df = df.set_index(action_col_name)
     df.index = df.index.str.replace(action_prefix, "")
-    print("\nColumns renamed & Actions as index:")
-    print(df.head())
-    print(df.dtypes)
+    if show_df_formatting:
+        print("\nColumns renamed & Actions as index:")
+    if show_df_formatting:
+        print(df.head())
+    if show_df_formatting:
+        print(df.dtypes)
 
-    if not IS_DATASET:
+    if not is_dataset:
         df.profit = pd.to_numeric(df.profit.str.replace("%", ""))
     df.profit = df.profit / 100
-    print("\nProfit column fixed:")
-    print(df.head())
-    print(df.dtypes)
+    if show_df_formatting:
+        print("\nProfit column fixed:")
+    if show_df_formatting:
+        print(df.head())
+    if show_df_formatting:
+        print(df.dtypes)
 
-    df["earnings"] = df.cost + df.profit * df.cost
-    print("\nEarnings added:")
-    print(df.head())
+    df["earnings"] = df.profit * df.cost
+    if show_df_formatting:
+        print("\nEarnings added:")
+    if show_df_formatting:
+        print(df.head())
 
-    execute_find_strategies_with_sorted(df, ["earnings", "profit"])
+    df = df.loc[
+        (df.cost > 0) & (df.cost <= STARTING_MONEY) & (df["earnings"] > 0)
+    ].sort_values(by=["profit"], ascending=False)
 
-    sorted_results = dict(
-        sorted(
-            BEST_STRATEGIES.items(),
-            key=lambda item: item[1][0] + item[1][1],
-            reverse=True,
+    return df
+
+
+def algorithm(
+    df: pd.DataFrame, current_money: float = STARTING_MONEY
+) -> List[str | float | float | float]:
+    """With dataframe sorted by profits, buy every possible action until no_money_left.
+
+    Args:
+        df (pd.DataFrame): DataFrame to process.
+        current_money (float, optional): Available money to buy actions with.. Defaults to 500.
+
+    Returns:
+        List[str | float | float | float]: First possible combination spending all money.
+    """
+
+    # list of arrays [name, cost, profit, earnings]
+    first_possible_combination = []
+    minimum_action_cost = df.cost.min()
+
+    # Index: Action number(str)
+
+    # Columns: ['cost','profit','earnings']
+    for i, action in df.iterrows():
+        # if current action is buyable (best first because df is sorted)
+        if current_money - action.cost >= 0:
+            # add action to solution
+            first_possible_combination += [
+                [
+                    action.name,
+                    action.cost,
+                    action.profit,
+                    action.earnings,
+                ]
+            ]
+
+            current_money -= action.cost
+
+            # if no more money, stop forloop
+            if current_money < minimum_action_cost:
+                break
+
+    return first_possible_combination
+
+
+def print_results(algo_result: List[str | float | float | float]):
+    """Gather results and print actions chosen as well as earnings and costs sums.
+
+    Args:
+        algo_result (List[str  |  float  |  float  |  float]): Result of algorithm function.
+    """
+
+    # make a df from result arrays
+    df_from_result = pd.DataFrame(
+        data=algo_result, columns=["name", "cost", "profit", "earnings"]
+    ).set_index("name")
+
+    actions_sum = df_from_result.cost.sum()
+    earnings_sum = df_from_result.earnings.sum()
+
+    # display all rows
+    pd.set_option("display.max_rows", None)
+
+    print("\nDataFrame :")
+    print(df_from_result)
+
+    print(f"Money spent: {round(actions_sum, 2)}€")
+    print(f"Total earnings: {round(earnings_sum, 2)}€")
+
+
+def time_since(timestamp: float, rounded_to: int = 3) -> float:
+    """Time since timestamp rounded to two decimals.
+
+    Args:
+        timestamp (float): Time to compare.
+
+    Returns:
+        float: Time since timestamp rounded to two decimals.
+    """
+    return round(time.time() - timestamp, rounded_to)
+
+
+def main():
+    start = time.time()
+
+    for file, is_dataset in {FILE1: False, FILE2: True, FILE3: True}.items():
+        dataset_processing_time = time.time()
+        df = get_data(file, is_dataset, show_df_formatting=False)
+        results = algorithm(df)
+        print_results(results)
+        print(
+            f"\nExecution time of file {file}: {time_since(dataset_processing_time)}\n"
         )
-    ) # TODO le sort par bénéfice (profit - cout)
 
-    print("\nActions, revenus, argent restant")
-    [print(x) for x in take(10, sorted_results.items())]
-
-    print(f"\nTIME: {time.time()-start}\n")
+    print(f"\nCOMPLETE TIME: {time_since(start)}\n")
 
 
 if __name__ == "__main__":

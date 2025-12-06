@@ -3,12 +3,11 @@ import time
 from itertools import islice
 
 
-start = time.time()
-global since_last_step
-since_last_step = start
+global LAST_STEP_TIME
+LAST_STEP_TIME = start = time.time()
 
 
-df = pd.read_csv("liste1.csv")
+df = pd.read_csv("datasets/liste1.csv")
 print("File as is:")
 print(df.head())
 print(df.dtypes)
@@ -54,9 +53,9 @@ def find_all_subcombinations(
             )
             if actions_len == 20:
                 print(
-                    f"Time after all {this_action.name}s have been processed is: {time.time()-start} ({time.time()-globals()["since_last_step"]})"
+                    f"Time after all {this_action.name}s have been processed is: {time.time()-start} ({time.time()-globals()["LAST_STEP_TIME"]})"
                 )
-                globals()["since_last_step"] = time.time()
+                globals()["LAST_STEP_TIME"] = time.time()
             current_actions_bought.pop()
 
     all_combinations[f"Actions {",".join(current_actions_bought)}"] = round(
@@ -76,11 +75,11 @@ find_all_subcombinations(
     current_earnings=0,
     current_money_left=500,
 )
-since_last_step = time.time()
+LAST_STEP_TIME = time.time()
 sorted_combinations = dict(
     sorted(all_combinations.items(), key=lambda item: item[1], reverse=True)
 )
-print(f"\ntime sorting all results: {time.time()-since_last_step}")
+print(f"\ntime sorting all results: {time.time()-LAST_STEP_TIME}")
 
 [print(x) for x in take(10, sorted_combinations.items())]
 
